@@ -144,8 +144,13 @@ Flags:
       --stos-cluster-namespace string    namespace of storageos cluster to be uninstalled
       --stos-operator-namespace string   namespace of storageos operator to be uninstalled (default "storageos")
 ```
-   
+
 Uninstall StorageOS from your Kubernetes cluster like so:
+
+> The following process **will not** remove data stored in disk by StorageOS.
+> If Etcd is removed, StorageOS Volumes won't be recoverable, but if the Etcd
+> cluster is kept intact, the volumes and their data will be available after a
+> reinstall.
 
 `kubectl storageos uninstall`
 
