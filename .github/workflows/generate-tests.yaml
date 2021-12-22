@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.ACTION_TOKEN }}
       - name: Generate and commit tests
         run: |
           make update-kind-nodes
           make generate-tests      
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.ACTION_TOKEN }}      
