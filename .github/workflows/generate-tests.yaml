@@ -1,0 +1,20 @@
+name: Generate tests for new kind-node image
+
+on: 
+  repository_dispatch:
+    types: [generate-tests]
+
+env:
+  LATEST_KIND_NODE: ${{ github.event.client_payload.latest-kind-node }}
+            
+
+jobs:
+  test:
+    name: Generate test files
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build kubectl-storageos
+        run: make generate-tests
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3

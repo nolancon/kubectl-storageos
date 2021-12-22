@@ -2,6 +2,11 @@
 
 : "${TEST_KIND_NODES?= required}"
 : "${REPO?= required}"
+: "${LATEST_KIND_NODE? = required}"
+
+sed -i "/^TEST_KIND_NODES/ s/$/,${LATEST_KIND_NODE}/" Makefile
+sed -i 's|\(TEST_KIND_NODES ?=\)[^,]*|\1|' Makefile
+sed -i '/^TEST_KIND_NODES/ s/?=,/?= /g' Makefile
 
 # This script reads a comma-delimited string TEST_KIND_NODES of storageos/kind-node versions
 # for kuttl tests to be run on, and generates the relevant files for each version.
