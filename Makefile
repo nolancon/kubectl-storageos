@@ -83,8 +83,10 @@ _build-pre: ## Build manager binary.
 run: fmt vet generate ## Run a controller from your host.
 	go run ./main.go
 
-generate-tests: ## Generate kuttl e2e tests
+update-kind-nodes: 
 	LATEST_KIND_NODE=$(LATEST_KIND_NODE) ./hack/update-kind-nodes.sh
+
+generate-tests: ## Generate kuttl e2e tests
 	TEST_KIND_NODES=$(TEST_KIND_NODES) REPO=$(REPO) ./hack/generate-tests.sh
 
 ##@ Deployment
