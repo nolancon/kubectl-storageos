@@ -1,0 +1,27 @@
+name: Generate tests for new kind-node image
+
+on: 
+  repository_dispatch:
+    types: [generate-tests]
+
+env:
+  LATEST_KIND_NODE: ${{ github.event.client_payload.latest-kind-node }}
+            
+
+jobs:
+  test:
+    name: Generate test files
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generate and commit tests
+        run: |
+          make update-kind-nodes
+          make generate-tests      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.ACTION_TOKEN }}
+          commit-message: "Generated test files for new kind node image"
+          branch: "new-kind-node-image"
+          title: "Update kuttl e2e tests to use most recent (n-5) k8s versions"
