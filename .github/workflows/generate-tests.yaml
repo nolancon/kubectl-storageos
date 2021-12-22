@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-        token: ${{ secrets.ACTION_TOKEN }}
+        with:
+          token: ${{ secrets.ACTION_TOKEN }}
       - name: Generate and commit tests
         run: |
           make update-kind-nodes
