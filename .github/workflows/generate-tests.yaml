@@ -14,7 +14,12 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-      - name: Build kubectl-storageos
-        run: make generate-tests
+      - name: Generate and commit tests
+        run: |
+          make generate-tests      
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"      
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -m "Update kind node versions for e2e tests"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
