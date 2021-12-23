@@ -1,10 +1,10 @@
-name: kuttl e2e test 1.18
+name: kuttl e2e test ATEST_KIND_NODE
 
 on: [push, pull_request]
 
 jobs:
   test:
-    name: kuttl e2e test 1.18
+    name: kuttl e2e test ATEST_KIND_NODE
     runs-on: ubuntu-18.04
     env:
       KUTTL: /usr/local/bin/kubectl-kuttl
@@ -22,7 +22,7 @@ jobs:
         run: |
           make _build-pre
           sudo cp bin/kubectl-storageos $KUBECTL_STORAGEOS
-      - name: Run kuttl installer 1.18
-        run: sudo kubectl-kuttl test --config e2e/kuttl/kubectl-storageos-installer-1.18.yaml
-      - name: Run kuttl upgrade 1.18
-        run: sudo kubectl-kuttl test --config e2e/kuttl/kubectl-storageos-upgrade-1.18.yaml
+      - name: Run kuttl installer ATEST_KIND_NODE
+        run: sudo kubectl-kuttl test --config e2e/kuttl/kubectl-storageos-installer-ATEST_KIND_NODE.yaml
+      - name: Run kuttl upgrade ATEST_KIND_NODE
+        run: sudo kubectl-kuttl test --config e2e/kuttl/kubectl-storageos-upgrade-ATEST_KIND_NODE.yaml
