@@ -21,8 +21,8 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Generated test files for new kind node image"
+          token: ${{ secrets.ACTION_TOKEN }}
+          commit-message: "Generated test files for new kind node image and removing test files for oldest kind node image. Support for k8s v(n-5)"
           branch: "new-kind-node-image"
-          title: "Update kuttl e2e tests to use most recent (n-5) k8s versions"
+          title: "Update kuttl e2e tests to use most recent kind node image"
           delete-branch: true
