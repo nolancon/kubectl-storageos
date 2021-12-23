@@ -2,11 +2,7 @@ name: Generate tests for new kind-node image
 
 on: 
   repository_dispatch:
-    types: [generate-tests]
-
-env:
-  LATEST_KIND_NODE: ${{ github.event.client_payload.latest-kind-node }}
-            
+    types: [generate-tests]           
 
 jobs:
   test:
@@ -14,6 +10,8 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - name: Trim version
+        run: echo "LATEST_KIND_NODE=$(echo ${{ github.event.client_payload.latest-kind-node }} | tr -d '[:v]')" >> $GITHUB_ENV
       - name: Generate and commit tests
         run: |
           make update-kind-nodes
