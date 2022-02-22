@@ -46,12 +46,16 @@ func Upgrade(uninstallConfig *apiv1.KubectlStorageOSConfig, installConfig *apiv1
 	// if storageOSClusterNamespace was not passed via config, use that of existing cluster
 	if installConfig.Spec.Install.StorageOSClusterNamespace == "" {
 		// First, check spec.namespace which defines the namespace for storageos installation by storageos/cluster-operator,
-		// (this field is deprecated in storageos/operator). Otherwise, use metadata.Namespace for storageos installation
-		// (default behaviour for storageos/operator).
-		if storageOSCluster.Spec.Namespace != "" {
+		// (this field is deprecated in storageos/operator). Next, check metadata.Namespace for storageos installation
+		// (default behaviour for storageos/operator). In either case, ignore if the namespace is protected - cluster-operator
+		// default cluster namespace is kube-system - we want to avoid installing here.
+		// If still no namespace has been found, attempt to discover the operator namespace.
+		if storageOSCluster.Spec.Namespace != "" && !protectedNamespaces[storageOSCluster.Spec.Namespace] {
 			installConfig.Spec.Install.StorageOSClusterNamespace = storageOSCluster.Spec.Namespace
-		} else {
+		} else if storageOSCluster.Namespace != "" && !protectedNamespaces[storageOSCluster.Namespace] {
 			installConfig.Spec.Install.StorageOSClusterNamespace = storageOSCluster.Namespace
+		} else {
+			installConfig.Spec.Install.StorageOSClusterNamespace = installConfig.Spec.GetOperatorNamespace()
 		}
 	}
 
