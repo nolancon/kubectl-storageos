@@ -27,13 +27,11 @@ const (
 )
 
 func Upgrade(uninstallConfig *apiv1.KubectlStorageOSConfig, installConfig *apiv1.KubectlStorageOSConfig, versionToUninstall string) error {
-	// create new installer with in-mem fs of operator and cluster to be installed
-	// use installer to validate etcd-endpoints before going any further
-	installer, err := NewInstaller(installConfig)
+	clientConfig, err := pluginutils.NewClientConfig()
 	if err != nil {
 		return err
 	}
-	storageOSCluster, err := pluginutils.GetFirstStorageOSCluster(installer.clientConfig)
+	storageOSCluster, err := pluginutils.GetFirstStorageOSCluster(clientConfig)
 	if err != nil {
 		return err
 	}
@@ -49,14 +47,18 @@ func Upgrade(uninstallConfig *apiv1.KubectlStorageOSConfig, installConfig *apiv1
 		// (this field is deprecated in storageos/operator). Next, check metadata.Namespace for storageos installation
 		// (default behaviour for storageos/operator). In either case, ignore if the namespace is protected - cluster-operator
 		// default cluster namespace is kube-system - we want to avoid installing here.
-		// If still no namespace has been found, attempt to discover the operator namespace.
 		if storageOSCluster.Spec.Namespace != "" && !protectedNamespaces[storageOSCluster.Spec.Namespace] {
 			installConfig.Spec.Install.StorageOSClusterNamespace = storageOSCluster.Spec.Namespace
 		} else if storageOSCluster.Namespace != "" && !protectedNamespaces[storageOSCluster.Namespace] {
 			installConfig.Spec.Install.StorageOSClusterNamespace = storageOSCluster.Namespace
-		} else {
-			installConfig.Spec.Install.StorageOSClusterNamespace = installConfig.Spec.GetOperatorNamespace()
 		}
+	}
+
+	// create new installer with in-mem fs of operator and cluster to be installed
+	// use installer to validate etcd-endpoints before going any further
+	installer, err := NewInstaller(installConfig)
+	if err != nil {
+		return err
 	}
 
 	if err = installer.handleEndpointsInput(installConfig.Spec); err != nil {
