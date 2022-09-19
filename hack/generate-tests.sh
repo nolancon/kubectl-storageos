@@ -28,7 +28,7 @@ do
 	cat <<EOF > "${file}"
 ${HEADER}
 kind: Cluster
-apiVersion: kind.sigs.k8s.io/v1alpha3
+apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   image: storageos/kind-node:v${kind_node}
@@ -54,7 +54,7 @@ kind: TestSuite
 testDirs:
 - ./e2e/tests/upgrade/${test_dir}
 kindConfig: e2e/kind/kind-config-${major}.yaml
-startKIND: true
+startKIND: false
 timeout: 300
 EOF
 	# write kuttl config file for version (installer)
@@ -71,7 +71,7 @@ kind: TestSuite
 testDirs:
 - ./e2e/tests/installer/stable
 kindConfig: e2e/kind/kind-config-${major}.yaml
-startKIND: true
+startKIND: false
 timeout: 300
 EOF
 	# write kuttl github action for version
@@ -102,16 +102,24 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.18'
-      - name: Install kuttl
+      - name: Install dependencies
         run: |
-          sudo curl -Lo \$KUTTL https://github.com/kudobuilder/kuttl/releases/download/v0.11.1/kubectl-kuttl_0.11.1_linux_x86_64
+          sudo curl -Lo \$KUTTL https://github.com/kudobuilder/kuttl/releases/download/v0.13.0/kubectl-kuttl_0.13.0_linux_x86_64
           sudo chmod +x \$KUTTL
+          sudo curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.15.0/kind-linux-amd64
+          sudo chmod +x kind
+      - name: Start kind
+        run: kind create cluster --retain --wait 2m --config e2e/kind/kind-config-${major}.yaml
       - name: Install kubectl-storageos
         run: |
           make _build
           sudo cp bin/kubectl-storageos \$KUBECTL_STORAGEOS
       - name: Run kuttl installer ${major}
         run: kubectl-kuttl test --config e2e/kuttl/${REPO}-installer-${major}.yaml
+      - name: Stop kind
+        run: kind delete cluster
+      - name: Start kind
+        run: kind create cluster --retain --wait 2m --config e2e/kind/kind-config-${major}.yaml
       - name: Run kuttl upgrade ${major}
         run: kubectl-kuttl test --config e2e/kuttl/${REPO}-upgrade-${major}.yaml
 
