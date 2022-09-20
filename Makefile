@@ -108,7 +108,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 HUSKY = $(shell pwd)/bin/husky
 .PHONY: husky
 husky: ## Download husky locally if necessary.
-	$(call go-get-tool,$(HUSKY),github.com/automation-co/husky@v0.2.5)
+	$(call go-get-tool,$(HUSKY),github.com/automation-co/husky@v0.2.14)
 
 AIR = $(shell pwd)/bin/air
 air: ## Download air locally if necessary.
