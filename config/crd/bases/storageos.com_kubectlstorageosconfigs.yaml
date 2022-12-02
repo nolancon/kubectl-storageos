@@ -132,6 +132,8 @@ spec:
                   wait:
                     type: boolean
                 type: object
+              serial:
+                type: boolean
               skipExistingWorkloadCheck:
                 type: boolean
               skipNamespaceDeletion:
