@@ -88,7 +88,7 @@ func InstallCmd() *cobra.Command {
 	cmd.Flags().String(installer.PortalSecretFlag, "", "storageos portal secret (plaintext)")
 	cmd.Flags().String(installer.PortalTenantIDFlag, "", "storageos portal tenant id")
 	cmd.Flags().String(installer.PortalAPIURLFlag, "", "storageos portal api url")
-	cmd.Flags().String(installer.PortalManagerVersionFlag, consts.PortalManagerLatestVersion, "version of portal manager")
+	cmd.Flags().String(installer.PortalManagerVersionFlag, "", "version of portal manager")
 	cmd.Flags().String(installer.PortalHTTPSProxyFlag, "", "HTTPS proxy of portal manager")
 	cmd.Flags().Bool(installer.IncludeLocalPathProvisionerFlag, false, "install the local path provisioner storage class")
 	cmd.Flags().String(installer.LocalPathProvisionerYamlFlag, "", "local-path-provisioner.yaml path or url")
@@ -96,6 +96,7 @@ func InstallCmd() *cobra.Command {
 	cmd.Flags().Bool(installer.TestClusterFlag, false, "mark the cluster being created as a test cluster")
 	cmd.Flags().Bool(installer.SkipK8sVersionCheckFlag, false, "skip the minimum k8s version check")
 	cmd.Flags().Bool(installer.SerialFlag, false, "install components serially")
+	cmd.Flags().Bool(installer.AirGapFlag, false, "install in an air gapped environment")
 
 	cmd.Flags().MarkHidden(installer.TestClusterFlag)
 
@@ -106,6 +107,11 @@ func InstallCmd() *cobra.Command {
 
 func installCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error {
 	log.Verbose = config.Spec.Verbose
+
+	if err := installer.FlagsAreSet(installFlagsFilter(config)); err != nil {
+		return err
+	}
+
 	if config.Spec.Install.AdminPassword != "" {
 		if err := validatePassword(config.Spec.Install.AdminPassword); err != nil {
 			return err
@@ -150,14 +156,6 @@ func installCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error 
 	if config.Spec.Install.EnablePortalManager {
 		if err := versionSupportsFeature(config.Spec.Install.StorageOSVersion, consts.PortalManagerFirstSupportedVersion); err != nil {
 			return fmt.Errorf("failed to install portal manager: %w", err)
-		}
-		if err := installer.FlagsAreSet(map[string]string{
-			installer.PortalClientIDFlag: config.Spec.Install.PortalClientID,
-			installer.PortalSecretFlag:   config.Spec.Install.PortalSecret,
-			installer.PortalTenantIDFlag: config.Spec.Install.PortalTenantID,
-			installer.PortalAPIURLFlag:   config.Spec.Install.PortalAPIURL,
-		}); err != nil {
-			return err
 		}
 		if config.Spec.Install.PortalManagerVersion == "" {
 			config.Spec.Install.PortalManagerVersion = (version.PortalManagerLatestSupportedVersion())
@@ -278,6 +276,11 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 			return err
 		}
 
+		config.Spec.AirGap, err = cmd.Flags().GetBool(installer.AirGapFlag)
+		if err != nil {
+			return err
+		}
+
 		config.Spec.Install.StorageOSVersion = cmd.Flags().Lookup(installer.StosVersionFlag).Value.String()
 		config.Spec.Install.EtcdOperatorVersion = cmd.Flags().Lookup(installer.EtcdOperatorVersionFlag).Value.String()
 		config.Spec.Install.KubernetesVersion = cmd.Flags().Lookup(installer.K8sVersionFlag).Value.String()
@@ -319,6 +322,7 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 	config.Spec.IncludeEtcd = viper.GetBool(installer.IncludeEtcdConfig)
 	config.Spec.SkipStorageOSCluster = viper.GetBool(installer.SkipStosClusterConfig)
 	config.Spec.Serial = viper.GetBool(installer.SerialConfig)
+	config.Spec.AirGap = viper.GetBool(installer.AirGapConfig)
 	config.Spec.Install.EnablePortalManager = viper.GetBool(installer.EnablePortalManagerConfig)
 	config.Spec.Install.Wait = viper.GetBool(installer.WaitConfig)
 	config.Spec.Install.DryRun = viper.GetBool(installer.DryRunConfig)
