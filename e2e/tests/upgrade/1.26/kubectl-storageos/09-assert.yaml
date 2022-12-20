@@ -4,16 +4,13 @@ metadata:
   name: storageos-operator
   namespace: storageos
 status:
-  replicas: 1 
+  replicas: 1
 ---
 apiVersion: storageos.com/v1
 kind: StorageOSCluster
 metadata:
-  name: example-storageoscluster
-  # spec.namespace not set in original storageoscluster.
-  # Therefore it will have defaulted to kube-system. 
-  # As, such the upgraded installation will also exist in kube-system.
-  namespace: kube-system
+  name: storageoscluster
+  namespace: storageos 
 status:
   conditions:
   - message: Scheduler Ready

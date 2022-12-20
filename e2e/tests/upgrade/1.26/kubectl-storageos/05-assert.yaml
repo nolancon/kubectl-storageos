@@ -5,9 +5,9 @@ metadata:
     volume.beta.kubernetes.io/storage-provisioner: csi.storageos.com
   finalizers:
   - kubernetes.io/pvc-protection
-  name: pvc-2
+  name: pvc-1
   namespace: default
 spec:
-  storageClassName: fast
+  storageClassName: storageos
 status:
   phase: Bound

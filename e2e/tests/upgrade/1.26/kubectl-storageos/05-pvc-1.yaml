@@ -4,7 +4,7 @@ metadata:
   name: pvc-1
   namespace: default
 spec:
-  storageClassName: fast
+  storageClassName: storageos
   accessModes:
     - ReadWriteOnce
   resources:
