@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 import (
 	"fmt"
@@ -15,17 +15,17 @@ import (
 	"github.com/storageos/kubectl-storageos/pkg/version"
 )
 
-const uninstallPortal = "uninstall-portal"
+const enablePortal = "enable-portal"
 
-func UninstallPortalCmd() *cobra.Command {
+func EnablePortalCmd() *cobra.Command {
 	var err error
 	var traceError bool
 	pluginLogger := logger.NewLogger()
 	cmd := &cobra.Command{
-		Use:          uninstallPortal,
+		Use:          enablePortal,
 		Args:         cobra.MinimumNArgs(0),
-		Short:        "Uninstall StorageOS Portal Manager",
-		Long:         `Uninstall StorageOS Portal Manager`,
+		Short:        "Enable StorageOS Portal Manager",
+		Long:         `Enable StorageOS Portal Manager`,
 		SilenceUsage: true,
 		PreRun:       func(cmd *cobra.Command, args []string) {},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -34,21 +34,20 @@ func UninstallPortalCmd() *cobra.Command {
 			})
 
 			config := &apiv1.KubectlStorageOSConfig{}
-			if err = setUninstallPortalValues(cmd, config); err != nil {
+			if err = setEnablePortalValues(cmd, config); err != nil {
 				return
 			}
 
 			traceError = config.Spec.StackTrace
 
-			err = uninstallPortalCmd(config, pluginLogger)
+			err = enablePortalCmd(config, pluginLogger)
 		},
 		PostRunE: func(cmd *cobra.Command, args []string) error {
-			if err := pluginutils.HandleError(uninstallPortal, err, traceError); err != nil {
-				pluginLogger.Error(fmt.Sprintf("%s%s", uninstallPortal, " has failed"))
-
+			if err := pluginutils.HandleError(enablePortal, err, traceError); err != nil {
+				pluginLogger.Error(fmt.Sprintf("%s%s", enablePortal, " has failed"))
 				return err
 			}
-			pluginLogger.Success("Portal Manager uninstalled successfully.")
+			pluginLogger.Success("Portal Manager enabled successfully.")
 			return nil
 		},
 	}
@@ -62,7 +61,7 @@ func UninstallPortalCmd() *cobra.Command {
 	return cmd
 }
 
-func uninstallPortalCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error {
+func enablePortalCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error {
 	log.Verbose = config.Spec.Verbose
 	existingOperatorVersion, err := version.GetExistingOperatorVersion(config.Spec.Install.StorageOSOperatorNamespace)
 	if err != nil {
@@ -73,24 +72,17 @@ func uninstallPortalCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger
 		return err
 	}
 
-	version.SetPortalManagerLatestSupportedVersion(version.PortalManagerLatestSupportedVersion())
-
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		cliInstaller, err := installer.NewPortalManagerInstaller(config, true, log)
+		cliInstaller, err := installer.NewPortalManagerInstaller(config, false, log)
 		if err != nil {
 			return err
 		}
-
-		if err = cliInstaller.EnablePortalManager(false); err != nil {
-			return err
-		}
-
-		log.Commencing(uninstallPortal)
-		return cliInstaller.UninstallPortalManager()
+		log.Commencing(enablePortal)
+		return cliInstaller.EnablePortalManager(true)
 	})
 }
 
-func setUninstallPortalValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) error {
+func setEnablePortalValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) error {
 	viper.BindPFlag(installer.StosConfigPathFlag, cmd.Flags().Lookup(installer.StosConfigPathFlag))
 	v := viper.GetViper()
 	viper.SetConfigName("kubectl-storageos-config")
