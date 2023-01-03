@@ -10,9 +10,10 @@ import (
 	"github.com/blang/semver"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/storageos/kubectl-storageos/pkg/consts"
 	pluginutils "github.com/storageos/kubectl-storageos/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 	oldClusterYamlUrl  = "https://raw.githubusercontent.com/storageos/cluster-operator/%s/deploy/crds/storageos.com_v1_storageoscluster_cr.yaml"
 	oldSecretYamlUrl   = "https://raw.githubusercontent.com/storageos/cluster-operator/%s/deploy/secret.yaml"
 
-	// URLs to installation manifests
+	// URLs to install manifests
 	stosOperatorManifestsImageUrl = "docker.io/storageos/operator-manifests"
 	stosOperatorManifestsUrl      = "https://github.com/storageos/operator/releases/download/%s/storageos-operator.yaml"
 
@@ -42,56 +43,45 @@ const (
 )
 
 var (
-	// EnableUnofficialRelease allows the installer to install not official of operator.
-	// This could be change with build flag:
-	// -X github.com/storageos/kubectl-storageos/pkg/version.EnableUnofficialRelease=true
-	EnableUnofficialRelease string
-	enableUnofficialRelease bool
+	// EnablePreReleases allows the installer to install pre-release versions of the operator.
+	// This setting is defined at build time
+	// -X github.com/storageos/kubectl-storageos/pkg/version.EnablePreReleases=true
+	EnablePreReleases string
+	enablePreReleases bool
 
 	versionRegexp *regexp.Regexp
-	shaRegexp     *regexp.Regexp
 
 	PluginVersion string
 )
 
-var shaLengths map[int]bool = map[int]bool{
-	224 / 4: true,
-	256 / 4: true,
-	384 / 4: true,
-	512 / 4: true,
-}
-
 func init() {
 	var err error
 
-	if EnableUnofficialRelease != "" {
-		enableUnofficialRelease, err = strconv.ParseBool(EnableUnofficialRelease)
+	if EnablePreReleases != "" {
+		enablePreReleases, err = strconv.ParseBool(EnablePreReleases)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	versionRegexp, err = regexp.Compile("v?([0-9]+.[0-9]+.[0-9]+)")
-	if err != nil {
-		panic(err)
-	}
-
-	shaRegexp, err = regexp.Compile("^[a-fA-F0-9]+$")
+	versionRegexp, err = regexp.Compile(consts.VersionRegex)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// IsDevelop determines dev versions.
 func IsDevelop(version string) bool {
 	if version == "develop" || version == "test" {
 		return true
 	}
 
-	if _, ok := shaLengths[len(version)]; ok {
-		if shaRegexp.Match([]byte(version)) {
-			return true
+	switch len(version) {
+	case 56, 64, 96, 128:
+		shaRegexp, err := regexp.Compile(consts.ShaVersionRegex)
+		if err != nil {
+			return false
 		}
+		return shaRegexp.Match([]byte(version))
 	}
 
 	return false
