@@ -63,6 +63,8 @@ spec:
                     type: boolean
                   enableMetrics:
                     type: boolean
+                  enableNodeGuard:
+                    type: boolean
                   enablePortalManager:
                     type: boolean
                   etcdCPULimit:
@@ -99,6 +101,8 @@ spec:
                     type: string
                   markTestCluster:
                     type: boolean
+                  nodeGuardEnv:
+                    type: string
                   portalAPIURL:
                     type: string
                   portalClientID:

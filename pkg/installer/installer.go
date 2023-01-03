@@ -77,6 +77,8 @@ const (
 	SkipK8sVersionCheckFlag         = "skip-k8s-version-check"
 	SerialFlag                      = "serial"
 	AirGapFlag                      = "air-gap"
+	EnableNodeGuardFlag             = "enable-node-guard"
+	NodeGuardEnvFlag                = "node-guard-env"
 
 	// config file fields - contain path delimiters for plugin interpretation of config manifest
 	StackTraceConfig                          = "spec.stackTrace"
@@ -136,6 +138,8 @@ const (
 	EnableMetricsConfig                       = "spec.install.enableMetrics"
 	TestClusterConfig                         = "spec.install.enableTestClusterTaint"
 	SkipK8sVersionCheckConfig                 = "spec.install.skipK8sVerisonCheck"
+	EnableNodeGuardConfig                     = "spec.install.enableNodeGuard"
+	NodeGuardEnvConfig                        = "spec.install.nodeGuardEnv"
 
 	// dir and file names for in memory fs
 	etcdDir                  = "etcd"

@@ -97,6 +97,8 @@ func InstallCmd() *cobra.Command {
 	cmd.Flags().Bool(installer.SkipK8sVersionCheckFlag, false, "skip the minimum k8s version check")
 	cmd.Flags().Bool(installer.SerialFlag, false, "install components serially")
 	cmd.Flags().Bool(installer.AirGapFlag, false, "install in an air gapped environment")
+	cmd.Flags().Bool(installer.EnableNodeGuardFlag, false, "enable node guard")
+	cmd.Flags().String(installer.NodeGuardEnvFlag, "", "comma delimited string of environment variables for node guard - eg: \"MINIMUM_REPLICAS=2,WATCH_ALL_VOLUMES=true\"")
 
 	cmd.Flags().MarkHidden(installer.TestClusterFlag)
 
@@ -161,6 +163,11 @@ func installCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error 
 			config.Spec.Install.PortalManagerVersion = (version.PortalManagerLatestSupportedVersion())
 		}
 		version.SetPortalManagerLatestSupportedVersion(config.Spec.Install.PortalManagerVersion)
+	}
+
+	// if node guard env vars have been set, set enable flag implicitly
+	if config.Spec.Install.NodeGuardEnv != "" {
+		config.Spec.Install.EnableNodeGuard = true
 	}
 
 	var err error
@@ -266,6 +273,11 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 			return err
 		}
 
+		config.Spec.Install.EnableNodeGuard, err = cmd.Flags().GetBool(installer.EnableNodeGuardFlag)
+		if err != nil {
+			return err
+		}
+
 		config.Spec.IncludeLocalPathProvisioner, err = cmd.Flags().GetBool(installer.IncludeLocalPathProvisionerFlag)
 		if err != nil {
 			return err
@@ -312,6 +324,7 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 		config.Spec.Install.EtcdMemoryLimit = cmd.Flags().Lookup(installer.EtcdMemoryLimitFlag).Value.String()
 		config.Spec.Install.EtcdReplicas = cmd.Flags().Lookup(installer.EtcdReplicasFlag).Value.String()
 		config.Spec.Install.EtcdVersionTag = cmd.Flags().Lookup(installer.EtcdVersionTag).Value.String()
+		config.Spec.Install.NodeGuardEnv = cmd.Flags().Lookup(installer.NodeGuardEnvFlag).Value.String()
 		config.InstallerMeta.StorageOSSecretYaml = ""
 
 		return nil
@@ -363,6 +376,8 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 	config.Spec.Install.EtcdTopologyKey = viper.GetString(installer.EtcdTopologyKeyConfig)
 	config.Spec.Install.MarkTestCluster = viper.GetBool(installer.TestClusterConfig)
 	config.Spec.Install.SkipK8sVersionCheck = viper.GetBool(installer.SkipK8sVersionCheckConfig)
+	config.Spec.Install.EnableNodeGuard = viper.GetBool(installer.EnableNodeGuardConfig)
+	config.Spec.Install.NodeGuardEnv = viper.GetString(installer.NodeGuardEnvConfig)
 
 	return nil
 }
