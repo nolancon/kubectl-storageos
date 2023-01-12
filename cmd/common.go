@@ -104,11 +104,12 @@ func storageClassPrompt(log *logger.Logger) (string, error) {
 
 // k8sVersionPrompt uses promptui the user to enter the kubernetes version of the target cluster
 func k8sVersionPrompt(log *logger.Logger) (string, error) {
-	log.Prompt("Please enter the version of the target Kubernetes cluster.")
+	log.Prompt("Please enter the version of the target Kubernetes cluster, enter version string in the format `vX.X.X`.")
+	log.Prompt("Example: v1.25.0")
 	validate := func(input string) error {
 		match, _ := regexp.MatchString("v[0-9]+.[0-9]+.[0-9]+", input)
 		if !match {
-			return errors.New("invalid entry, example of valid entry: 'v1.23.0'")
+			return errors.New("invalid entry, example of valid entry: 'v1.25.0'")
 		}
 		return nil
 	}
@@ -202,15 +203,17 @@ func parseArgs(args []string) []string {
 	return parsedArgs
 }
 
-func installFlagsFilter(config *apiv1.KubectlStorageOSConfig) map[string]string {
+func installFlagsFilter(config *apiv1.KubectlStorageOSConfig, upgrade bool) map[string]string {
 	requiredFlags := make(map[string]string)
-	if config.Spec.Install.EnablePortalManager {
-		requiredFlags[installer.PortalClientIDFlag] = config.Spec.Install.PortalClientID
-		requiredFlags[installer.PortalSecretFlag] = config.Spec.Install.PortalSecret
-		requiredFlags[installer.PortalTenantIDFlag] = config.Spec.Install.PortalTenantID
-		requiredFlags[installer.PortalAPIURLFlag] = config.Spec.Install.PortalAPIURL
+	if !upgrade {
+		// upgrade does not require portal flags as they are taken from existing portal client secret
+		if config.Spec.Install.EnablePortalManager {
+			requiredFlags[installer.PortalClientIDFlag] = config.Spec.Install.PortalClientID
+			requiredFlags[installer.PortalSecretFlag] = config.Spec.Install.PortalSecret
+			requiredFlags[installer.PortalTenantIDFlag] = config.Spec.Install.PortalTenantID
+			requiredFlags[installer.PortalAPIURLFlag] = config.Spec.Install.PortalAPIURL
+		}
 	}
-
 	if !config.Spec.AirGap {
 		return requiredFlags
 	}
@@ -247,7 +250,7 @@ func uninstallFlagsFilter(config *apiv1.KubectlStorageOSConfig) map[string]strin
 
 func upgradeFlagsFilter(uninstallConfig, installConfig *apiv1.KubectlStorageOSConfig) map[string]string {
 	uninstallFlags := uninstallFlagsFilter(uninstallConfig)
-	installFlags := installFlagsFilter(installConfig)
+	installFlags := installFlagsFilter(installConfig, true)
 	for k, v := range uninstallFlags {
 		installFlags[k] = v
 	}
