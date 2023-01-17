@@ -22,6 +22,7 @@ import (
 	apiv1 "github.com/storageos/kubectl-storageos/api/v1"
 	"github.com/storageos/kubectl-storageos/pkg/logger"
 	pluginutils "github.com/storageos/kubectl-storageos/pkg/utils"
+	"github.com/storageos/kubectl-storageos/pkg/version"
 	pluginversion "github.com/storageos/kubectl-storageos/pkg/version"
 	operatorapi "github.com/storageos/operator/api/v1"
 )
@@ -91,9 +92,9 @@ const (
 	AirGapConfig                              = "spec.airGap"
 	WaitConfig                                = "spec.install.wait"
 	DryRunConfig                              = "spec.install.dryRun"
-	StosVersionConfig                         = "spec.install.storageOSVersion"
-	EtcdOperatorVersionConfig                 = "spec.install.etcdOperatorVersion"
 	K8sVersionConfig                          = "spec.install.kubernetesVersion"
+	InstallStosVersionConfig                  = "spec.install.storageOSVersion"
+	InstallEtcdOperatorVersionConfig          = "spec.install.etcdOperatorVersion"
 	InstallEtcdNamespaceConfig                = "spec.install.etcdNamespace"
 	InstallStosOperatorNSConfig               = "spec.install.storageOSOperatorNamespace"
 	StosClusterNSConfig                       = "spec.install.storageOSClusterNamespace"
@@ -115,8 +116,11 @@ const (
 	PortalSecretConfig                        = "spec.install.portalSecret"
 	PortalTenantIDConfig                      = "spec.install.portalTenantID"
 	PortalAPIURLConfig                        = "spec.install.portalAPIURL"
-	PortalManagerVersionConfig                = "spec.install.portalManagerVersion"
+	InstallPortalManagerVersionConfig         = "spec.install.portalManagerVersion"
+	UninstallPortalManagerVersionConfig       = "spec.uninstall.portalManagerVersion"
 	EnablePortalManagerConfig                 = "spec.install.enablePortalManager"
+	UninstallStosVersionConfig                = "spec.uninstall.storageOSVersion"
+	UninstallEtcdOperatorVersionConfig        = "spec.uninstall.etcdOperatorVersion"
 	UninstallEtcdNSConfig                     = "spec.uninstall.etcdNamespace"
 	UninstallStosOperatorNSConfig             = "spec.uninstall.storageOSOperatorNamespace"
 	UninstallStosOperatorYamlConfig           = "spec.uninstall.storageOSOperatorYaml"
@@ -253,6 +257,8 @@ func NewInstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) (*In
 
 // NewPortalManagerInstaller returns an Installer used for all portal manager commands
 func NewPortalManagerInstaller(config *apiv1.KubectlStorageOSConfig, manifestsRequired bool, log *logger.Logger) (*Installer, error) {
+	version.SetPortalManagerLatestSupportedVersion(getStringWithDefault(config.Spec.Install.PortalManagerVersion, config.Spec.Uninstall.PortalManagerVersion))
+
 	in, err := newCommonInstaller(config, log)
 	if err != nil {
 		return in, errors.WithStack(err)
@@ -289,6 +295,8 @@ func NewPortalManagerInstaller(config *apiv1.KubectlStorageOSConfig, manifestsRe
 
 // newCommonInstaller contains logic that is common to NewInstaller and NewPortalManagerInstaller
 func newCommonInstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) (*Installer, error) {
+	setVersionsForOperation(config)
+
 	installer := &Installer{}
 	clientConfig, err := pluginutils.NewClientConfig()
 	if err != nil {
@@ -352,6 +360,8 @@ func newCommonInstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger
 
 // NewDryRunInstaller returns a lightweight Installer object for '--dry-run' enabled commands
 func NewDryRunInstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) (*Installer, error) {
+	setVersionsForOperation(config)
+
 	installer := &Installer{}
 
 	clientConfig, err := pluginutils.NewClientConfig()
@@ -393,6 +403,8 @@ func NewDryRunInstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger
 
 // NewUninstaller returns an Installer used for uninstall command
 func NewUninstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) (*Installer, error) {
+	setVersionsForOperation(config)
+
 	uninstaller := &Installer{}
 
 	clientConfig, err := pluginutils.NewClientConfig()
@@ -455,6 +467,12 @@ func NewUninstaller(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) (*
 	}
 
 	return uninstaller, nil
+}
+
+func setVersionsForOperation(config *apiv1.KubectlStorageOSConfig) {
+	version.SetOperatorLatestSupportedVersion(getStringWithDefault(config.Spec.Install.StorageOSVersion, config.Spec.Uninstall.StorageOSVersion))
+	version.SetEtcdOperatorLatestSupportedVersion(getStringWithDefault(config.Spec.Install.EtcdOperatorVersion, config.Spec.Uninstall.EtcdOperatorVersion))
+	version.SetPortalManagerLatestSupportedVersion(getStringWithDefault(config.Spec.Install.PortalManagerVersion, config.Spec.Uninstall.PortalManagerVersion))
 }
 
 // kubectlNew returns a new KubectlClient. The client is based on silent direct applier and deleter if verbose

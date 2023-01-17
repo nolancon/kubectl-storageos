@@ -111,7 +111,7 @@ func InstallCmd() *cobra.Command {
 func installCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error {
 	log.Verbose = config.Spec.Verbose
 
-	if err := installer.FlagsAreSet(installFlagsFilter(config, false)); err != nil {
+	if err := installer.FlagsAreSet(installFlagsFilter(config)); err != nil {
 		return err
 	}
 
@@ -124,13 +124,11 @@ func installCmd(config *apiv1.KubectlStorageOSConfig, log *logger.Logger) error 
 	if config.Spec.Install.StorageOSVersion == "" {
 		config.Spec.Install.StorageOSVersion = version.OperatorLatestSupportedVersion()
 	}
-	version.SetOperatorLatestSupportedVersion(config.Spec.Install.StorageOSVersion)
 
 	if config.Spec.IncludeEtcd {
 		if config.Spec.Install.EtcdOperatorVersion == "" {
 			config.Spec.Install.EtcdOperatorVersion = version.EtcdOperatorLatestSupportedVersion()
 		}
-		version.SetEtcdOperatorLatestSupportedVersion(config.Spec.Install.EtcdOperatorVersion)
 		if config.Spec.Install.EtcdMemoryLimit != "" {
 			if err := validateResourceLimit(config.Spec.Install.EtcdMemoryLimit); err != nil {
 				return err
@@ -341,8 +339,8 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 	config.Spec.Install.Wait = viper.GetBool(installer.WaitConfig)
 	config.Spec.Install.DryRun = viper.GetBool(installer.DryRunConfig)
 	config.Spec.Install.EnableMetrics = GetBoolIfConfigSet(installer.EnableMetricsConfig)
-	config.Spec.Install.StorageOSVersion = viper.GetString(installer.StosVersionConfig)
-	config.Spec.Install.EtcdOperatorVersion = viper.GetString(installer.EtcdOperatorVersionConfig)
+	config.Spec.Install.StorageOSVersion = viper.GetString(installer.InstallStosVersionConfig)
+	config.Spec.Install.EtcdOperatorVersion = viper.GetString(installer.InstallEtcdOperatorVersionConfig)
 	config.Spec.Install.KubernetesVersion = viper.GetString(installer.K8sVersionConfig)
 	config.Spec.Install.StorageOSOperatorYaml = viper.GetString(installer.InstallStosOperatorYamlConfig)
 	config.Spec.Install.StorageOSClusterYaml = viper.GetString(installer.InstallStosClusterYamlConfig)
@@ -367,7 +365,7 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 	config.Spec.Install.PortalSecret = viper.GetString(installer.PortalSecretConfig)
 	config.Spec.Install.PortalTenantID = viper.GetString(installer.PortalTenantIDConfig)
 	config.Spec.Install.PortalAPIURL = viper.GetString(installer.PortalAPIURLConfig)
-	config.Spec.Install.PortalManagerVersion = viper.GetString(installer.PortalManagerVersionConfig)
+	config.Spec.Install.PortalManagerVersion = viper.GetString(installer.InstallPortalManagerVersionConfig)
 	config.InstallerMeta.StorageOSSecretYaml = ""
 	config.Spec.IncludeLocalPathProvisioner = viper.GetBool(installer.IncludeLocalPathProvisionerConfig)
 	config.Spec.Install.LocalPathProvisionerYaml = viper.GetString(installer.InstallLocalPathProvisionerYamlConfig)
@@ -381,4 +379,41 @@ func setInstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) 
 	config.Spec.Install.NodeGuardEnv = viper.GetString(installer.NodeGuardEnvConfig)
 
 	return nil
+}
+
+func installFlagsFilter(config *apiv1.KubectlStorageOSConfig) map[string]string {
+	requiredFlags := make(map[string]string)
+	if config.Spec.Install.EnablePortalManager {
+		requiredFlags[installer.PortalClientIDFlag] = config.Spec.Install.PortalClientID
+		requiredFlags[installer.PortalSecretFlag] = config.Spec.Install.PortalSecret
+		requiredFlags[installer.PortalTenantIDFlag] = config.Spec.Install.PortalTenantID
+		requiredFlags[installer.PortalAPIURLFlag] = config.Spec.Install.PortalAPIURL
+	}
+	if !config.Spec.AirGap {
+		return requiredFlags
+	}
+
+	// stos version is a requirement for an air-gap install to avoid querying for
+	// the latest version.
+	requiredFlags[installer.StosVersionFlag] = config.Spec.Install.StorageOSVersion
+
+	if config.Spec.IncludeEtcd {
+		// if etcd is to be installed, etcd operator version is a requirement for an air-gap install
+		// to avoid querying for the latest version.
+		requiredFlags[installer.EtcdOperatorVersionFlag] = config.Spec.Install.EtcdOperatorVersion
+	}
+
+	if config.Spec.IncludeLocalPathProvisioner {
+		// local path provisioner spec is pulled from a URL, so it becomes a requirement for
+		// an air-gap install to avoid download attempt.
+		requiredFlags[installer.LocalPathProvisionerYamlFlag] = config.Spec.Install.LocalPathProvisionerYaml
+	}
+
+	if config.Spec.Install.EnablePortalManager {
+		// if portal manager is to be installed, portal manager version is a requirement for
+		// an air-gap install to avoid querying for the latest version.
+		requiredFlags[installer.PortalManagerVersionFlag] = config.Spec.Install.PortalManagerVersion
+	}
+
+	return requiredFlags
 }

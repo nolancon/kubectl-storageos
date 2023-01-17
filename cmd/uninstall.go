@@ -52,7 +52,7 @@ func UninstallCmd() *cobra.Command {
 	}
 	cmd.Flags().Bool(installer.StackTraceFlag, false, "print stack trace of error")
 	cmd.Flags().BoolP(installer.VerboseFlag, "v", false, "verbose logging")
-	cmd.Flags().Bool(installer.SkipNamespaceDeletionFlag, false, "leaving namespaces untouched")
+	cmd.Flags().Bool(installer.SkipNamespaceDeletionFlag, false, "leave namespaces untouched")
 	cmd.Flags().Bool(installer.SkipExistingWorkloadCheckFlag, false, "skip check for PVCs using storageos storage class during uninstall")
 	cmd.Flags().Bool(installer.SkipStosClusterFlag, false, "skip storageos cluster uninstallation")
 	cmd.Flags().Bool(installer.IncludeEtcdFlag, false, "uninstall etcd (only applicable to github.com/storageos/etcd-cluster-operator etcd cluster)")
@@ -70,6 +70,9 @@ func UninstallCmd() *cobra.Command {
 	cmd.Flags().String(installer.LocalPathProvisionerYamlFlag, "", "local-path-provisioner.yaml path or url")
 	cmd.Flags().Bool(installer.SerialFlag, false, "uninstall components serially")
 	cmd.Flags().Bool(installer.AirGapFlag, false, "uninstall in an air gapped environment")
+	cmd.Flags().String(installer.StosVersionFlag, "", "version of storageos operator to uninstall")
+	cmd.Flags().String(installer.EtcdOperatorVersionFlag, "", "version of etcd operator to uninstall")
+	cmd.Flags().String(installer.PortalManagerVersionFlag, "", "version of portal manager to uninstall")
 
 	viper.BindPFlags(cmd.Flags())
 
@@ -79,10 +82,7 @@ func UninstallCmd() *cobra.Command {
 func uninstallCmd(config *apiv1.KubectlStorageOSConfig, skipNamespaceDeletionHasSet bool, log *logger.Logger) error {
 	log.Verbose = config.Spec.Verbose
 
-	if err := installer.FlagsAreSet(uninstallFlagsFilter(config)); err != nil {
-		return err
-	}
-
+	var err error
 	// if skip namespace delete was not passed via flag or config, prompt user to enter manually
 	if !config.Spec.SkipNamespaceDeletion && !skipNamespaceDeletionHasSet {
 		var err error
@@ -92,23 +92,38 @@ func uninstallCmd(config *apiv1.KubectlStorageOSConfig, skipNamespaceDeletionHas
 		}
 	}
 
-	operatorVersion, err := pluginversion.GetExistingOperatorVersion(config.Spec.Uninstall.StorageOSOperatorNamespace)
-	if err != nil {
-		return err
-	}
-	log.Successf("Discovered StorageOS cluster and operator version '%s'.", operatorVersion)
-	pluginversion.SetOperatorLatestSupportedVersion(operatorVersion)
-
-	if config.Spec.IncludeEtcd {
-		etcdOperatorVersion, err := pluginversion.GetExistingEtcdOperatorVersion(config.Spec.Uninstall.EtcdNamespace)
+	if config.Spec.Uninstall.StorageOSVersion == "" {
+		config.Spec.Uninstall.StorageOSVersion, err = pluginversion.GetExistingOperatorVersion(config.Spec.Uninstall.StorageOSOperatorNamespace)
 		if err != nil {
 			return err
 		}
-
-		pluginversion.SetEtcdOperatorLatestSupportedVersion(etcdOperatorVersion)
+		log.Successf("Discovered StorageOS cluster and operator version '%s'.", config.Spec.Uninstall.StorageOSVersion)
 	}
 
-	if err = setVersionSpecificValues(config, operatorVersion); err != nil {
+	if config.Spec.Uninstall.PortalManagerVersion == "" {
+		config.Spec.Uninstall.PortalManagerVersion, err = pluginversion.GetExistingPortalManagerVersion()
+		if err != nil {
+			// unable to get portal manager version. It may not exist, so just log a warning and continue.
+			log.Warnf("%s. Continuing uninstall.", err.Error())
+		}
+		log.Successf("Discovered Portal Manager version '%s'.", config.Spec.Uninstall.PortalManagerVersion)
+	}
+
+	if config.Spec.IncludeEtcd {
+		if config.Spec.Uninstall.EtcdOperatorVersion == "" {
+			config.Spec.Uninstall.EtcdOperatorVersion, err = pluginversion.GetExistingEtcdOperatorVersion(config.Spec.Uninstall.EtcdNamespace)
+			if err != nil {
+				return err
+			}
+			log.Successf("Discovered ETCD cluster and operator version '%s'.", config.Spec.Uninstall.EtcdOperatorVersion)
+		}
+	}
+
+	if err := installer.FlagsAreSet(uninstallFlagsFilter(config)); err != nil {
+		return err
+	}
+
+	if err = setVersionSpecificValues(config); err != nil {
 		return err
 	}
 
@@ -118,7 +133,7 @@ func uninstallCmd(config *apiv1.KubectlStorageOSConfig, skipNamespaceDeletionHas
 	}
 
 	log.Commencing(uninstall)
-	return cliInstaller.Uninstall(false, operatorVersion)
+	return cliInstaller.Uninstall(false)
 }
 
 func setUninstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig) error {
@@ -181,6 +196,9 @@ func setUninstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig
 		config.Spec.Uninstall.EtcdClusterYaml = cmd.Flags().Lookup(installer.EtcdClusterYamlFlag).Value.String()
 		config.Spec.Uninstall.ResourceQuotaYaml = cmd.Flags().Lookup(installer.ResourceQuotaYamlFlag).Value.String()
 		config.Spec.Uninstall.LocalPathProvisionerYaml = cmd.Flags().Lookup(installer.LocalPathProvisionerYamlFlag).Value.String()
+		config.Spec.Uninstall.StorageOSVersion = cmd.Flags().Lookup(installer.StosVersionFlag).Value.String()
+		config.Spec.Uninstall.EtcdOperatorVersion = cmd.Flags().Lookup(installer.EtcdOperatorVersionFlag).Value.String()
+		config.Spec.Uninstall.PortalManagerVersion = cmd.Flags().Lookup(installer.PortalManagerVersionFlag).Value.String()
 
 		return nil
 	}
@@ -204,41 +222,71 @@ func setUninstallValues(cmd *cobra.Command, config *apiv1.KubectlStorageOSConfig
 	config.Spec.Uninstall.ResourceQuotaYaml = viper.GetString(installer.UninstallResourceQuotaYamlConfig)
 	config.Spec.IncludeLocalPathProvisioner = viper.GetBool(installer.IncludeLocalPathProvisionerConfig)
 	config.Spec.Uninstall.LocalPathProvisionerYaml = viper.GetString(installer.UninstallLocalPathProvisionerYamlConfig)
+	config.Spec.Uninstall.StorageOSVersion = viper.GetString(installer.UninstallStosVersionConfig)
+	config.Spec.Uninstall.EtcdOperatorVersion = viper.GetString(installer.UninstallEtcdOperatorVersionConfig)
+	config.Spec.Uninstall.PortalManagerVersion = viper.GetString(installer.UninstallPortalManagerVersionConfig)
 
 	return nil
 }
 
-func setVersionSpecificValues(config *apiv1.KubectlStorageOSConfig, version string) (err error) {
+func setVersionSpecificValues(config *apiv1.KubectlStorageOSConfig) (err error) {
 	// Don't fetch version specific manifests for develop edition
-	if pluginversion.IsDevelop(version) {
+	if pluginversion.IsDevelop(config.Spec.Uninstall.StorageOSVersion) {
 		return
 	}
 
 	// set additional values to be used by Installer for in memory fs build
 	if config.Spec.Uninstall.StorageOSOperatorYaml == "" {
-		config.Spec.Uninstall.StorageOSOperatorYaml, err = pluginversion.OperatorImageUrlByVersion(version)
+		config.Spec.Uninstall.StorageOSOperatorYaml, err = pluginversion.OperatorImageUrlByVersion(config.Spec.Uninstall.StorageOSVersion)
 		if err != nil {
 			return
 		}
 	}
 
 	if config.Spec.Uninstall.StorageOSClusterYaml == "" {
-		config.Spec.Uninstall.StorageOSClusterYaml, err = pluginversion.ClusterUrlByVersion(version)
+		config.Spec.Uninstall.StorageOSClusterYaml, err = pluginversion.ClusterUrlByVersion(config.Spec.Uninstall.StorageOSVersion)
 		if err != nil {
 			return
 		}
 	}
 	if config.Spec.Uninstall.ResourceQuotaYaml == "" {
-		config.Spec.Uninstall.ResourceQuotaYaml, err = pluginversion.ResourceQuotaUrlByVersion(version)
+		config.Spec.Uninstall.ResourceQuotaYaml, err = pluginversion.ResourceQuotaUrlByVersion(config.Spec.Uninstall.StorageOSVersion)
 		if err != nil {
 			return
 		}
 	}
 
-	config.InstallerMeta.StorageOSSecretYaml, err = pluginversion.SecretUrlByVersion(version)
+	config.InstallerMeta.StorageOSSecretYaml, err = pluginversion.SecretUrlByVersion(config.Spec.Uninstall.StorageOSVersion)
 	if err != nil {
 		return
 	}
 
 	return
+}
+
+func uninstallFlagsFilter(config *apiv1.KubectlStorageOSConfig) map[string]string {
+	requiredFlags := make(map[string]string)
+	if !config.Spec.AirGap {
+		return requiredFlags
+	}
+
+	if config.Spec.Install.StorageOSVersion == "" {
+		// no stos version was found in the cluster, so it becomes a requirement
+		// for an air-gap uninstall to avoid querying for the latest version.
+		requiredFlags[installer.StosVersionFlag] = config.Spec.Install.StorageOSVersion
+	}
+
+	if config.Spec.IncludeEtcd && config.Spec.Install.EtcdOperatorVersion == "" {
+		// no etcd-operator version was found in the cluster, so it becomes a requirement
+		// for an air-gap uninstall to avoid querying for the latest version.
+		requiredFlags[installer.EtcdOperatorVersionFlag] = config.Spec.Install.EtcdOperatorVersion
+	}
+
+	if config.Spec.IncludeLocalPathProvisioner {
+		// local path provisioner spec is pulled from a URL, so it becomes a requirement for
+		// an air-gap uninstall to avoid download attempt.
+		requiredFlags[installer.LocalPathProvisionerYamlFlag] = config.Spec.Install.LocalPathProvisionerYaml
+	}
+
+	return requiredFlags
 }

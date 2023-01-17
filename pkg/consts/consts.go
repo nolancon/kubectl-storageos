@@ -19,6 +19,8 @@ const (
 
 	EtcdSecretName = "storageos-etcd-secret"
 
+	PortalManagerName = "storageos-portal-manager"
+
 	VersionRegex    = "v?([0-9]+.[0-9]+.[0-9]+)"
 	ShaVersionRegex = "^[a-fA-F0-9]+$"
 )
